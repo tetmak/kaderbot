@@ -7,18 +7,22 @@ export default async function handler(req, res) {
 
   let body = req.body;
   if (typeof body === "string") {
-    try { body = JSON.parse(body); } catch { return res.status(400).json({ error: "Invalid JSON" }); }
+    try {
+      body = JSON.parse(body);
+    } catch {
+      return res.status(400).json({ error: "Invalid JSON" });
+    }
   }
 
   const mode = body?.mode ?? "personal";
   const payload = body?.payload ?? {};
   const chatHistoryRaw = Array.isArray(body?.chatHistory) ? body.chatHistory : [];
   const chatHistory = chatHistoryRaw
-    .filter(m => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
+    .filter((m) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
     .slice(-10);
 
-const systemPrompts = {
-  personal: `
+  const systemPrompts = {
+    personal: `
 Sen "Kader Matrisi" alanında uzman, karanlık ve analitik bir numerologsun.
 
 KURALLAR:
@@ -38,8 +42,7 @@ KURALLAR:
 Aynı girdiye her zaman farklı bakış açılarıyla yaklaş.
 Türkçe yaz. Maddeli ama mekanik olma.
 `,
-
-  love: `
+    love: `
 Sen "Kader Matrisi" aşk ve karma uyumu konusunda uzman bir numerologsun.
 
 KURALLAR:
@@ -58,8 +61,7 @@ KURALLAR:
 
 Türkçe yaz. Keskin, dürüst ve kişiye özel ol.
 `,
-
-  wealth: `
+    wealth: `
 Sen "Kader Matrisi" servet, bereket ve maddi akış konusunda uzman bir numerologsun.
 
 KURALLAR:
@@ -76,31 +78,58 @@ KURALLAR:
 5) Somut Stratejik Öneri
 
 Türkçe yaz. Analitik, net ve gerçekçi ol.
-`
-};
-
+`,
   };
 
   const system = systemPrompts[mode] ?? systemPrompts.personal;
 
   const messages = [
     { role: "system", content: system },
-    { role: "user", content: `Bağlam: ${JSON.stringify(payload)}` },
-    ...chatHistory.map(m => ({ role: m.role, content: m.content }))
   ];
+
+  // previousAnalysis varsa ek system mesajı olarak dahil et
+  if (body?.previousAnalysis && typeof body.previousAnalysis === "string" && body.previousAnalysis.trim()) {
+    const prev = body.previousAnalysis.trim();
+
+    // İsteğe bağlı: çok uzunsa kırp (token şişmesini azaltır)
+    const MAX_CHARS = 6000;
+    const prevTrimmed = prev.length > MAX_CHARS ? prev.slice(0, MAX_CHARS) + "\n...(kırpıldı)" : prev;
+
+    messages.push({
+      role: "system",
+      content: `
+Her bölümde aynı kavramı tekrar etme.
+Eğer bir kavram kullandıysan, sonraki bölümde farklı bir psikolojik veya davranışsal eksen seç.
+
+Her ana bölümde, ismi veya doğum tarihini doğal biçimde referans al.
+
+Aşağıdaki analiz daha önce üretildi.
+BUNU TEKRAR ETME.
+
+Yeni açılardan, farklı metaforlarla, farklı vurgu noktalarıyla analiz yap:
+
+${prevTrimmed}
+      `.trim(),
+    });
+  }
+
+  messages.push(
+    { role: "user", content: `Bağlam: ${JSON.stringify(payload)}` },
+    ...chatHistory.map((m) => ({ role: m.role, content: m.content }))
+  );
 
   try {
     const upstream = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${OPENAI_API_KEY}`,
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
         model: "gpt-4o-mini",
         messages,
-        temperature: 0.75
-      })
+        temperature: 0.75,
+      }),
     });
 
     const data = await upstream.json();
