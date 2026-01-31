@@ -21,6 +21,19 @@ interface SpeakingState {
 }
 
 export function ChatBot({ 
+  useEffect(() => {
+  // Sayfa yenilenince sohbet geçmişi temizlensin
+  localStorage.removeItem("km_chat_history");
+  localStorage.removeItem("chatHistory");
+  localStorage.removeItem("dark_chat_history");
+  sessionStorage.removeItem("km_chat_history");
+  sessionStorage.removeItem("chatHistory");
+
+  // Ekrandaki mesajları da sıfırla
+  setMessages([]);
+  setInput("");
+}, []);
+
   context, 
   hasPremiumAccess, 
   onPremiumRequired,
@@ -45,29 +58,33 @@ export function ChatBot({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (isOpen && !chatService) {
-      const service = createChatService(context);
-      setChatService(service);
-      setMessages(service.getMessages());
-    }
-  }, [isOpen, context, chatService]);
+ useEffect(() => {
+  if (isOpen && !chatService) {
+    const service = createChatService(context);
+    setChatService(service);
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    // Her açılışta temiz başla (persist edilen eski mesajları yükleme)
+    setMessages([]);
+  }
+}, [isOpen, context, chatService]);
 
-  useEffect(() => {
-    if (isOpen && inputRef.current && !isLoading) {
-      inputRef.current.focus();
-    }
-  }, [isOpen, isLoading]);
+useEffect(() => {
+  messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+}, [messages]);
 
-  useEffect(() => {
-    if (isOpen && initialMessage && chatService && !hasSentInitialMessage) {
-      setHasSentInitialMessage(true);
-      handleSendMessage(initialMessage);
-    }
+useEffect(() => {
+  if (isOpen && inputRef.current && !isLoading) {
+    inputRef.current.focus();
+  }
+}, [isOpen, isLoading]);
+
+
+    // ❌ setMessages(service.getMessages());
+    // ✅ her açılışta temiz başla
+    setMessages([]);
+  }
+}, [isOpen, context, chatService]);
+
   }, [isOpen, initialMessage, chatService, hasSentInitialMessage]);
 
   // Konuşma animasyonu
