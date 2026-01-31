@@ -99,7 +99,7 @@ Türkçe yaz. Analitik, net ve gerçekçi ol.
       body: JSON.stringify({
         model: "gpt-4o-mini",
         messages,
-        temperature: 0.6
+        temperature: 0.75
       })
     });
 
